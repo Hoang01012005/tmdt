@@ -1,0 +1,33 @@
+name = "webtmdt-store"
+main = "src/index.ts"
+compatibility_date = "2025-01-01"
+
+[vars]
+AI_GATEWAY_ID = "default"
+
+# Worker serves frontend built from apps/web/dist, only /api/* runs via Worker
+[assets]
+directory = "../web/dist"
+not_found_handling = "single-page-application"
+run_worker_first = ["/api/*"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "store-db"
+database_id = "b9934635-e390-4687-a213-6648552e3b9d"
+
+[[d1_databases]]
+binding = "SQL_DB"
+database_name = "store-db"
+database_id = "b9934635-e390-4687-a213-6648552e3b9d"
+
+[[kv_namespaces]]
+binding = "CART"
+id = "026af6f9044046ebbfd7f8ee9a2e88ea"
+
+[ai]
+binding = "AI"
+
+[[vectorize]]
+binding = "VECTOR_DB"
+index_name = "agentic-rag-index"
