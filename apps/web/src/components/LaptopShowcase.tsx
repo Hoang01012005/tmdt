@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Plus, Check, ShoppingCart } from 'lucide-react';
 import type { Product } from '../types';
-import { FEATURED_LAPTOPS } from '../data/products';
+import { ADDITIONAL_PRODUCTS, FEATURED_LAPTOPS } from '../data/products';
 
 interface LaptopShowcaseProps {
   onAddToCart: (product: Product) => void;
@@ -18,7 +18,11 @@ export const LaptopShowcase: React.FC<LaptopShowcaseProps> = ({
 }) => {
   const [activeTab, setActiveTab] = useState<'all' | 'office' | 'gaming' | 'design'>('all');
 
-  const filteredLaptops = FEATURED_LAPTOPS.filter(p => {
+  const laptops = [
+    ...FEATURED_LAPTOPS,
+    ...ADDITIONAL_PRODUCTS.filter(product => product.category === 'laptop')
+  ];
+  const filteredLaptops = laptops.filter(p => {
     if (activeTab === 'all') return true;
     return p.subCategory === activeTab;
   });

@@ -1,7 +1,7 @@
 import React from 'react';
 import { ShoppingCart } from 'lucide-react';
 import type { Product } from '../types';
-import { FEATURED_ACCESSORIES } from '../data/products';
+import { ADDITIONAL_PRODUCTS, FEATURED_ACCESSORIES } from '../data/products';
 
 interface AccessoryShowcaseProps {
   onAddToCart: (product: Product) => void;
@@ -31,7 +31,10 @@ export const AccessoryShowcase: React.FC<AccessoryShowcaseProps> = ({
 
         {/* 3 Accessory Cards Grid */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
-          {FEATURED_ACCESSORIES.map(acc => (
+          {[
+            ...FEATURED_ACCESSORIES,
+            ...ADDITIONAL_PRODUCTS.filter(product => product.category === 'accessory')
+          ].map(acc => (
             <div
               key={acc.id}
               className="group flex flex-col justify-between rounded-2xl bg-white dark:bg-[#11141B] border border-slate-200 dark:border-[#1E2330] hover:border-indigo-400 dark:hover:border-[#5856D6]/40 shadow-xs hover:shadow-lg transition-all duration-300 p-5 sm:p-6"

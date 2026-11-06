@@ -1,5 +1,11 @@
 import type { Product, CartItem, User, Order, AdminMetrics } from './types';
-import { HERO_PRODUCT, FEATURED_LAPTOPS, FEATURED_COMPONENTS, FEATURED_ACCESSORIES } from './data/products';
+import {
+  HERO_PRODUCT,
+  FEATURED_LAPTOPS,
+  FEATURED_COMPONENTS,
+  FEATURED_ACCESSORIES,
+  ADDITIONAL_PRODUCTS,
+} from './data/products';
 
 const CART_KEY = 'webtmdt_cart_id';
 const USER_KEY = 'webtmdt_user';
@@ -50,6 +56,7 @@ const ALL_LOCAL_PRODUCTS: Product[] = [
   ...FEATURED_LAPTOPS,
   ...FEATURED_COMPONENTS,
   ...FEATURED_ACCESSORIES,
+  ...ADDITIONAL_PRODUCTS,
 ];
 
 // ==========================================

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { ShoppingCart } from 'lucide-react';
 import type { Product } from '../types';
-import { FEATURED_COMPONENTS } from '../data/products';
+import { ADDITIONAL_PRODUCTS, FEATURED_COMPONENTS } from '../data/products';
 
 interface ComponentShowcaseProps {
   onAddToCart: (product: Product) => void;
@@ -23,7 +23,11 @@ export const ComponentShowcase: React.FC<ComponentShowcaseProps> = ({
     { id: 'psu', label: 'Nguồn & Tản nhiệt' }
   ];
 
-  const filteredComponents = FEATURED_COMPONENTS.filter(comp => {
+  const components = [
+    ...FEATURED_COMPONENTS,
+    ...ADDITIONAL_PRODUCTS.filter(product => product.category === 'component')
+  ];
+  const filteredComponents = components.filter(comp => {
     if (activeTab === 'all') return true;
     return comp.subCategory === activeTab;
   });

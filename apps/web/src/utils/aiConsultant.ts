@@ -5,6 +5,7 @@ import {
   FEATURED_LAPTOPS,
   FEATURED_COMPONENTS,
   FEATURED_ACCESSORIES,
+  ADDITIONAL_PRODUCTS,
 } from '../data/products';
 
 export interface AIResponse {
@@ -52,10 +53,18 @@ export const normalizeEmotion = (emotion?: string): CompanionEmotion => {
 
 export const getAIConsultationResponse = (query: string): AIResponse => {
   const q = query.toLowerCase().trim();
+  const allProducts = [
+    HERO_PRODUCT,
+    ...FEATURED_LAPTOPS,
+    ...FEATURED_COMPONENTS,
+    ...FEATURED_ACCESSORIES,
+    ...ADDITIONAL_PRODUCTS,
+  ];
 
-  // 0. Bắt buộc biết chính xác số lượng sản phẩm trong kho (13 sản phẩm)
+  // 0. Trả số lượng từ toàn bộ catalog khi API không khả dụng
   if (
     q.includes('bao nhiêu') ||
+    q.includes('bao nhieu') ||
     q.includes('trong kho') ||
     q.includes('kho hàng') ||
     q.includes('số lượng') ||
@@ -64,9 +73,9 @@ export const getAIConsultationResponse = (query: string): AIResponse => {
     q.includes('tổng số')
   ) {
     return {
-      text: 'Hiện tại trong kho TechStore đang có CHÍNH XÁC 13 sản phẩm chính hãng đang sẵn hàng, bao gồm 4 mẫu laptop cao cấp (Yoga Pro 7, Vivobook 14, Legion Slim 5, Zenbook 14 OLED), 5 dòng linh kiện PC thế hệ mới và 4 phụ kiện công nghệ hàng đầu.',
+      text: `Hiện tại trong kho TechStore đang có CHÍNH XÁC ${allProducts.length} sản phẩm chính hãng đang sẵn hàng.`,
       emotion: 'happy',
-      products: [HERO_PRODUCT, FEATURED_LAPTOPS[1], FEATURED_COMPONENTS[0]],
+      products: allProducts,
     };
   }
 
@@ -142,7 +151,7 @@ export const getAIConsultationResponse = (query: string): AIResponse => {
 
   // Mặc định
   return {
-    text: `Chào bạn! Tôi là Trợ lý AI Kỹ thuật viên của TechStore. Kho hàng hiện có 13 sản phẩm chính hãng với đầy đủ laptop, linh kiện PC và gear cao cấp. Bạn có thể gõ câu hỏi hoặc bấm nút Micro để nói trực tiếp với tôi nhé!`,
+    text: `Chào bạn! Tôi là Trợ lý AI Kỹ thuật viên của TechStore. Kho hàng hiện có ${allProducts.length} sản phẩm chính hãng với đầy đủ laptop, linh kiện PC và gear cao cấp. Bạn có thể gõ câu hỏi hoặc bấm nút Micro để nói trực tiếp với tôi nhé!`,
     emotion: 'happy',
     products: [HERO_PRODUCT, FEATURED_LAPTOPS[1], FEATURED_COMPONENTS[0]],
   };
@@ -153,6 +162,8 @@ export const getAIConsultationResponse = (query: string): AIResponse => {
  */
 export const fetchAIConsultation = async (query: string): Promise<AIResponse> => {
   const sessionId = getSessionId();
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(() => controller.abort(), 15000);
 
   try {
     const res = await fetch('/api/consultation/chat', {
@@ -162,6 +173,7 @@ export const fetchAIConsultation = async (query: string): Promise<AIResponse> =>
         'x-session-id': sessionId,
       },
       body: JSON.stringify({ message: query, sessionId }),
+      signal: controller.signal,
     });
 
     if (res.ok) {
@@ -181,7 +193,9 @@ export const fetchAIConsultation = async (query: string): Promise<AIResponse> =>
       }
     }
   } catch (err) {
-    console.warn('[AI API Network Error, using local fallback]', err);
+    console.warn('[AI API Error, using local fallback]', err);
+  } finally {
+    window.clearTimeout(timeoutId);
   }
 
   // Fallback to local rule-based response

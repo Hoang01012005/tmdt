@@ -297,7 +297,7 @@ export const ConsultationModal: React.FC<ConsultationModalProps> = ({
                       <span className="w-2 h-2 rounded-full bg-indigo-500 animate-bounce" />
                     </span>
                     <span className="text-[11px] font-mono text-cyan-600 dark:text-cyan-400">
-                      Đang tra cứu dữ liệu Cloudflare D1 & suy nghĩ...
+                      Đang suy nghĩ...
                     </span>
                   </div>
                 </div>

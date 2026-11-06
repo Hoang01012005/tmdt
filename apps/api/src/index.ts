@@ -243,8 +243,6 @@ const formatProduct = (row: ProductRow): Product => {
 // ==========================================
 // 0.2 REAL-TIME AI CONSULTATION (RAG ENGINE: D1 FTS5 + WORKERS KV + OPENROUTER LLM)
 // ==========================================
-const OPENROUTER_API_KEY = '';
-
 interface SearchIntent {
   raw: string;
   normalized: string;
@@ -256,6 +254,8 @@ interface SearchIntent {
   keywords: string[];
   ftsQuery: string;
   isInventoryCheck: boolean;
+  isWeatherQuestion: boolean;
+  isPolicyQuestion: boolean;
   isGreeting: boolean;
 }
 
@@ -272,7 +272,9 @@ function extractSearchIntent(query: string): SearchIntent {
   const isGreeting = /^(alo|chào|xin chào|hello|hi|helo|hey)(\s+bạn|\s+ai|\s+shop|\s+ad)?$/i.test(normalized);
 
   // 2. Phán đoán hỏi kho hàng / số lượng
-  const isInventoryCheck = /(bao nhiêu|trong kho|kho hàng|số lượng|mấy sản phẩm|còn hàng không|tổng số|danh sách kho)/i.test(normalized);
+  const isInventoryCheck = /(bao nhiêu|bao nhieu|trong kho|trong kho hang|kho hàng|kho hang|số lượng|so luong|mấy sản phẩm|may san pham|còn hàng không|con hang khong|tổng số|tong so|danh sách kho|danh sach kho)/i.test(normalized);
+  const isWeatherQuestion = /(thời tiết|thoi tiet|mưa|nắng|nang|bão|nhiệt độ|nhiet do|dự báo|du bao)/i.test(normalized);
+  const isPolicyQuestion = /(chính sách|chinh sach|chinhsach|đổi trả|doi tra|hoàn tiền|hoan tien|bảo hành|bao hanh|vận chuyển|van chuyen|thanh toán|thanh toan)/i.test(normalized);
 
   // 3. Trích xuất ngân sách (VD: "25 triệu", "dưới 20tr", "15 - 20 triệu", "tầm 30 củ")
   const rangeMatch = normalized.match(/(?:từ\s*)?(\d+(?:\.\d+)?)\s*(?:đến|-|\s*tới\s*)\s*(\d+(?:\.\d+)?)\s*(?:triệu|tr|củ|m)/i);
@@ -370,6 +372,8 @@ function extractSearchIntent(query: string): SearchIntent {
     keywords: tokens,
     ftsQuery,
     isInventoryCheck,
+    isWeatherQuestion,
+    isPolicyQuestion,
     isGreeting,
   };
 }
@@ -541,7 +545,7 @@ function buildDeterministicRAGFallback(
 
   if (intent.isGreeting) {
     return {
-      reply: 'Chào bạn! Tôi là Trợ lý AI Kỹ thuật viên của TechStore. Kho hàng của chúng tôi đang kết nối trực tiếp với Cloudflare D1 với 13 sản phẩm chính hãng sẵn có. Bạn cần tư vấn cấu hình hay thiết bị nào hôm nay?',
+      reply: `Chào bạn! Tôi là Trợ lý AI Kỹ thuật viên của TechStore. Kho hàng của chúng tôi đang kết nối trực tiếp với Cloudflare D1 với ${d1Data.totalCount} sản phẩm chính hãng sẵn có. Bạn cần tư vấn cấu hình hay thiết bị nào hôm nay?`,
       emotion: 'vui_ve',
       recommended_product_ids: p.slice(0, 2).map((x) => x.id),
     };
@@ -552,6 +556,14 @@ function buildDeterministicRAGFallback(
       reply: `Hiện tại trong kho TechStore đang có CHÍNH XÁC ${d1Data.totalCount} sản phẩm chính hãng 100% sẵn hàng, bao gồm ${d1Data.categoryBreakdown['laptop'] || 4} Laptop cao cấp, ${d1Data.categoryBreakdown['component'] || 5} Linh kiện PC thế hệ mới và ${d1Data.categoryBreakdown['accessory'] || 4} Phụ kiện gear hàng đầu.`,
       emotion: 'vui_ve',
       recommended_product_ids: p.slice(0, 3).map((x) => x.id),
+    };
+  }
+
+  if (intent.isWeatherQuestion) {
+    return {
+      reply: 'Mình là trợ lý TechStore nên chưa có dữ liệu thời tiết trực tiếp. Bạn có thể hỏi mình về laptop, linh kiện PC hoặc phụ kiện công nghệ; nếu muốn biết tồn kho, hãy hỏi "shop có bao nhiêu sản phẩm?".',
+      emotion: 'lang_nghe',
+      recommended_product_ids: [],
     };
   }
 
@@ -976,7 +988,7 @@ CHỈ trả về JSON thuần, không markdown, không giải thích thêm:
   const userContent = `[Ngữ cảnh Dữ liệu TechStore]:\n${contextSnippet || 'Không có dữ liệu sản phẩm phù hợp.'}\n\n[Câu hỏi của khách]: "${query}"`;
 
   // --- Ưu tiên 1: OpenRouter + Google Gemini Flash 1.5 (nhanh, thông minh) ---
-  const activeOpenRouterKey = env.OPENROUTER_API_KEY || OPENROUTER_API_KEY;
+  const activeOpenRouterKey = env.OPENROUTER_API_KEY;
   if (activeOpenRouterKey) {
     try {
       const orRes = await fetch('https://openrouter.ai/api/v1/chat/completions', {
@@ -1183,7 +1195,7 @@ async function syncProductsToVectorize(env: Env['Bindings']): Promise<number> {
   const policies = [
     {
       id: 'policy-warranty-techstore',
-      text: 'Chính sách bảo hành TechStore: Bảo hành 1 đổi 1 trong 30 ngày đầu tiên nếu phát hiện lỗi phần cứng nhà sản xuất đối với mọi dòng Laptop và Linh kiện PC. Bảo hành sửa chữa miễn phí 12-24 tháng theo tiêu chuẩn chính hãng. Hỗ trợ vệ sinh máy và tra keo tản nhiệt trọn đời.',
+      text: 'Chính sách đổi trả và bảo hành TechStore: Được đổi sản phẩm trong 30 ngày đầu nếu phát hiện lỗi phần cứng do nhà sản xuất. Sản phẩm đổi trả cần còn đầy đủ phụ kiện, hộp và chứng từ mua hàng; nhân viên sẽ kiểm tra tình trạng trước khi xác nhận. Bảo hành sửa chữa miễn phí 12-24 tháng theo tiêu chuẩn chính hãng. Hỗ trợ vệ sinh máy và tra keo tản nhiệt trọn đời.',
     },
     {
       id: 'policy-shipping-vietnam',
@@ -1425,6 +1437,82 @@ app.post('/consultation/chat', async (c) => {
 
   // 1. Kiểm tra Cache Cloudflare Workers KV cho các câu hỏi gợi ý nhanh
   const intent = extractSearchIntent(message);
+  const db = c.env.SQL_DB || c.env.DB;
+  const hasProductIntent =
+    Boolean(intent.category || intent.subCategory || intent.brands.length > 0) ||
+    intent.minPrice !== null ||
+    intent.maxPrice !== null ||
+    /(laptop|máy tính|may tinh|pc|linh kiện|linh kien|phần cứng|phan cung|phụ kiện|phu kien|bàn phím|ban phim|chuột|chuot|mouse|keyboard|màn hình|man hinh|tai nghe|loa|router|ssd|ram|cpu|gpu|card|mainboard|webcam|giá|gia|mua|tìm|tim|kiếm|kiem|kho|sản phẩm|san pham|tồn kho|ton kho)/i.test(
+      intent.normalized
+    );
+
+  // Inventory questions must use the authoritative D1 count, not the
+  // recommendation retrieval limit used for normal product searches.
+  if (intent.isInventoryCheck) {
+    const inventoryRows = await db.prepare(
+      'SELECT * FROM products WHERE in_stock = 1 ORDER BY category ASC, price DESC'
+    ).all<ProductRow>();
+    const inventory = inventoryRows.results || [];
+    const categoryBreakdown = inventory.reduce<Record<string, number>>((counts, product) => {
+      counts[product.category] = (counts[product.category] || 0) + 1;
+      return counts;
+    }, {});
+
+    return c.json({
+      reply: `Hiện tại trong kho TechStore đang có CHÍNH XÁC ${inventory.length} sản phẩm chính hãng 100% sẵn hàng, gồm ${categoryBreakdown.laptop || 0} laptop, ${categoryBreakdown.component || 0} linh kiện PC và ${categoryBreakdown.accessory || 0} phụ kiện.`,
+      emotion: 'vui_ve',
+      recommended_product_ids: inventory.map((product) => product.id),
+      products: inventory.map(formatProduct),
+      sessionId: body.sessionId || c.req.header('x-session-id') || 'default-session',
+      meta: {
+        route_selected: 'INVENTORY',
+        total_docs_used: inventory.length,
+      },
+    });
+  }
+
+  if (intent.isPolicyQuestion) {
+    return c.json({
+      reply: 'Chính sách đổi trả TechStore: bạn được đổi sản phẩm trong 30 ngày đầu nếu sản phẩm có lỗi phần cứng do nhà sản xuất. Sản phẩm cần còn đầy đủ phụ kiện, hộp và chứng từ mua hàng; đội ngũ hỗ trợ sẽ kiểm tra tình trạng trước khi xác nhận đổi trả. Với bảo hành, TechStore hỗ trợ bảo hành chính hãng từ 12-24 tháng tùy sản phẩm.',
+      emotion: 'vui_ve',
+      recommended_product_ids: [],
+      products: [],
+      sessionId: body.sessionId || c.req.header('x-session-id') || 'default-session',
+      meta: {
+        route_selected: 'POLICY',
+        total_docs_used: 0,
+      },
+    });
+  }
+
+  if (intent.isWeatherQuestion) {
+    return c.json({
+      reply: 'Mình là trợ lý TechStore nên chưa có dữ liệu thời tiết trực tiếp. Bạn có thể hỏi mình về laptop, linh kiện PC hoặc phụ kiện công nghệ; nếu muốn biết tồn kho, hãy hỏi "shop có bao nhiêu sản phẩm?".',
+      emotion: 'lang_nghe',
+      recommended_product_ids: [],
+      products: [],
+      sessionId: body.sessionId || c.req.header('x-session-id') || 'default-session',
+      meta: {
+        route_selected: 'OUT_OF_SCOPE',
+        total_docs_used: 0,
+      },
+    });
+  }
+
+  if (!intent.isGreeting && !hasProductIntent) {
+    return c.json({
+      reply: 'Mình là trợ lý TechStore, chỉ hỗ trợ tư vấn laptop, linh kiện PC, phụ kiện và thông tin tồn kho. Bạn muốn tìm sản phẩm hoặc cấu hình nào?',
+      emotion: 'lang_nghe',
+      recommended_product_ids: [],
+      products: [],
+      sessionId: body.sessionId || c.req.header('x-session-id') || 'default-session',
+      meta: {
+        route_selected: 'OUT_OF_SCOPE',
+        total_docs_used: 0,
+      },
+    });
+  }
+
   const QUICK_PROMPT_KEYS = [
     'tư vấn build pc 25 triệu',
     'laptop sinh viên it code mượt',
@@ -1512,7 +1600,6 @@ app.post('/consultation/chat', async (c) => {
   const MAX_CORRECTIONS = 0;
 
   // 4. Hydrate thẻ sản phẩm từ D1 để hiển thị trên UI Frontend
-  const db = c.env.SQL_DB || c.env.DB;
   let recommendedProducts: Product[] = [];
   if (answerObj.recommended_product_ids && answerObj.recommended_product_ids.length > 0) {
     const matchedRows = matchedProducts.filter((p) => answerObj.recommended_product_ids.includes(p.id));
